@@ -1,1 +1,240 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crazy Chicken Game</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #87CEEB;
+    font-family: system-ui, sans-serif;
+  }
+  h1 {
+    margin: 10px;
+    color: #fff;
+    text-shadow: 2px 2px 4px #000;
+  }
+  canvas {
+    background: linear-gradient(#87CEEB, #E0F7FF 70%, #8B4513 70%);
+    border: 4px solid #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.3);
+    max-width: 95vw;
+    height: auto;
+  }
+  p {
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 20px;
+    margin: 10px;
+  }
+</style>
+</head>
+<body>
 
+<h1>🐔 Crazy Chicken</h1>
+<canvas id="game" width="800" height="400"></canvas>
+<p>Space / टैप = कूदो | R = रीस्टार्ट</p>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const W = canvas.width;
+const H = canvas.height;
+const groundY = H - 50;
+
+let chicken, obstacles, foods, score, gameOver, speed, spawnTimer, foodTimer;
+
+function reset() {
+  chicken = { x: 80, y: groundY - 40, w: 40, h: 40, vy: 0 };
+  obstacles = [];
+  foods = [];
+  score = 0;
+  gameOver = false;
+  speed = 5;
+  spawnTimer = 50;
+  foodTimer = 80;
+}
+
+function jump() {
+  if (gameOver) {
+    reset();
+    return;
+  }
+  if (chicken.y >= groundY - chicken.h - 1) {
+    chicken.vy = -13;
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    jump();
+  }
+  if (e.key === 'r' || e.key === 'R') reset();
+});
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  jump();
+});
+
+function spawnObstacle() {
+  const types = ['🌵', '🚧', '🪨'];
+  const emoji = types[Math.floor(Math.random() * types.length)];
+  const size = 38;
+
+  obstacles.push({
+    x: W + 20,
+    y: groundY - size,
+    w: size,
+    h: size,
+    emoji: emoji
+  });
+}
+
+function spawnFood() {
+  const size = 32;
+
+  foods.push({
+    x: W + 20,
+    y: groundY - 80 - Math.random() * 80,
+    w: size,
+    h: size,
+    emoji: '🌽'
+  });
+}
+
+function rectCollide(a, b) {
+  return a.x < b.x + b.w &&
+         a.x + a.w > b.x &&
+         a.y < b.y + b.h &&
+         a.y + a.h > b.y;
+}
+
+function update() {
+  if (gameOver) return;
+
+  chicken.vy += 0.65;
+  chicken.y += chicken.vy;
+
+  if (chicken.y > groundY - chicken.h) {
+    chicken.y = groundY - chicken.h;
+    chicken.vy = 0;
+  }
+
+  obstacles.forEach(o => o.x -= speed);
+  foods.forEach(f => f.x -= speed);
+
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+  foods = foods.filter(f => f.x + f.w > 0);
+
+  spawnTimer--;
+  if (spawnTimer <= 0) {
+    spawnObstacle();
+    spawnTimer = Math.max(35, 90 - Math.floor(score / 10));
+  }
+
+  foodTimer--;
+  if (foodTimer <= 0) {
+    spawnFood();
+    foodTimer = 70 + Math.random() * 70;
+  }
+
+  for (const o of obstacles) {
+    if (rectCollide(chicken, o)) {
+      gameOver = true;
+      break;
+    }
+  }
+
+  for (let i = foods.length - 1; i >= 0; i--) {
+    if (rectCollide(chicken, foods[i])) {
+      score += 5;
+      foods.splice(i, 1);
+    }
+  }
+
+  score += 0.1;
+  speed += 0.001;
+}
+
+function drawEmoji(emoji, x, y, size) {
+  ctx.font = `${size}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(emoji, x, y);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#87CEEB');
+  sky.addColorStop(1, '#E0F7FF');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.beginPath();
+  ctx.arc(150, 80, 35, 0, Math.PI * 2);
+  ctx.arc(190, 70, 45, 0, Math.PI * 2);
+  ctx.arc(230, 85, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(600, 120, 30, 0, Math.PI * 2);
+  ctx.arc(640, 110, 40, 0, Math.PI * 2);
+  ctx.arc(680, 125, 25, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(0, groundY, W, H - groundY);
+
+  ctx.fillStyle = '#228B22';
+  ctx.fillRect(0, groundY - 8, W, 8);
+
+  foods.forEach(f => drawEmoji(f.emoji, f.x, f.y, f.w));
+  obstacles.forEach(o => drawEmoji(o.emoji, o.x, o.y, o.w));
+  drawEmoji('🐔', chicken.x, chicken.y, chicken.w);
+
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 24px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Score: ' + Math.floor(score), 20, 20);
+
+  if (gameOver) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 48px system-ui, sans-serif';
+    ctx.fillText('GAME OVER', W / 2, H / 2 - 50);
+
+    ctx.font = '24px system-ui, sans-serif';
+    ctx.fillText('Space / टैप करके रीस्टार्ट करो', W / 2, H / 2 + 10);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+reset();
+loop();
+</script>
+
+</body>
+</html>
